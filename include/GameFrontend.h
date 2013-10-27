@@ -44,6 +44,8 @@ public:
 		eEXPERT
 	};
 
+	GameFrontend();
+
 	void onUpdate(float dt);
 
 	void onStart();
@@ -62,7 +64,15 @@ public:
 
 	void onStart(const LuaObject& config);
 
+	void onBtnNewGameClicked();
+
+	void onBtnQuitClicked();
+
+	void startGame();
 private:
+
+	void toggleMenu();
+
 	AResourceSystem* mAssets;
 	Scene* mScene;
 	Renderer* mRenderer;
@@ -84,6 +94,9 @@ private:
 	Difficulty mDifficulty;
 
 	ParticleEffect* mCursor;
+
+	bool mMenuEnabled;
+	bool mGameStarted;
 }; // </GameFrontend>
 
 #endif // </GAMEFRONTEND_H>

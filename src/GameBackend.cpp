@@ -42,7 +42,7 @@ GameBackend::GameBackend() : mWindow(NULL), mInput(NULL), mEventManager(NULL), m
 
 	// Create window & hook it to the event manager
 	mWindow = new SDLGameWindow;
-	mWindow->create( AGameWindow::VideoMode(1280, 720, "Minesweeper", true, false) );
+	mWindow->create( AGameWindow::VideoMode(1600, 900, "Minesweeper", false, false) );
 	mWindow->hook(mEventManager);
 
 	// Initialize glew (must be done AFTER creating a valid OpenGL context i.e. rendering window)
@@ -94,6 +94,10 @@ bool GameBackend::handleEvent(const Sp<Event> evt){
 	return true;
 }
 
+void GameBackend::stop(){
+	mRunning = false;
+}
+
 void GameBackend::run(){
 	Timer time;
 
@@ -104,7 +108,10 @@ void GameBackend::run(){
 
 	onStart();
 
-	while(!mInput->isKeyDown(KEY_ESC)){
+	mRunning = true;
+
+	//while(!mInput->isKeyDown(KEY_ESC)){
+	while(mRunning){
 		mInput->pollAndDispatch();
 		mEventManager->tick();
 

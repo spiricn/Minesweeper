@@ -40,6 +40,7 @@ public:
 
 		Scene::GodRayParams params;
 		mScene->getGodRayParams(params);
+		params.enabled = true;
 
 		params.sourcePosition = glm::vec3(point.x, -100.0f, point.y);
 
@@ -193,7 +194,12 @@ public:
 private:
 };
 
+GameFrontend::GameFrontend() : mGameStarted(false){
+}
+
 void GameFrontend::onStart(){
+	mMenuEnabled = true;
+
 	// Initialize physics engine
 	mPhysics = new Physics(getEventManager());
 
@@ -216,6 +222,8 @@ void GameFrontend::onStart(){
 		
 	mGameState.hook(getEventManager());
 
+#if 0
+	// No need for this since we're already registered as a global listener
 	getEventManager()->registerListener(this, CellRevealedEvent::TYPE);
 		
 	getEventManager()->registerListener(this, GameLostEvent::TYPE);
@@ -223,12 +231,13 @@ void GameFrontend::onStart(){
 	getEventManager()->registerListener(this, CellMarkedEvent::TYPE);
 
 	getEventManager()->registerListener(this, GameWonEvent::TYPE);
+#endif
 
 	//mCamController.setCamera(&mScene->getCamera());
 
 	// GUI
 	mUi = new gui::Window;
-
+	
 	mUi->create(
 		getWindow()->getWidth(),
 		getWindow()->getHeight()
@@ -242,6 +251,23 @@ void GameFrontend::onStart(){
 	mUi->hook(getEventManager() );
 	mUi->setDefaultFont( font );
 
+	mUi->setDefaultScaleMode( gui::View::eGRID );
+	mUi->setGridSize(10, 3);
+
+	gui::Button* btnNewGame = mUi->createView<gui::Button>("btn_newGame");
+	btnNewGame->setText("New game");
+	btnNewGame->setGridLocation(2, 1, 2, 1);
+
+	getEventManager()->registerCallback(
+		new MemberCallback<GameFrontend>(this, &GameFrontend::onBtnNewGameClicked), gui::ButtonClickedEvent::TYPE, true, btnNewGame->getId());
+
+	gui::Button* btnQuit = mUi->createView<gui::Button>("btn_quit");
+	btnQuit->setText("Quit");
+	btnQuit->setGridLocation(5, 1, 2, 1);
+
+	getEventManager()->registerCallback(
+		new MemberCallback<GameFrontend>(this, &GameFrontend::onBtnQuitClicked), gui::ButtonClickedEvent::TYPE, true, btnQuit->getId());
+
 	mScene->setUIWindow(mUi);
 
 	getInput()->setMouseGrabbed(false);
@@ -250,7 +276,6 @@ void GameFrontend::onStart(){
 
 	SceneLoader loader(mScene, mAssets);
 	loader.load("scene.wts");
-
 
 	PointLight::Desc desc;
 	desc.enabled = true;
@@ -268,32 +293,19 @@ void GameFrontend::onStart(){
 
 	mCursorPointLight = (PointLight*)mScene->findActorByName("cursor_light");
 
-
-	mScene->getSkyBox()->getTransform().rotate(1, 0, 0, 180);
-
-
-
-		
-	mProcessManager->attach(mAmbientMusic = new MusicPlayer(mAssets->getSoundSystem()));
-
 	
+	mProcessManager->attach(mAmbientMusic = new MusicPlayer(mAssets->getSoundSystem()));
 
 	mScene->getFog().color = Color(1, 201/255.0f, 14/255.0f);
 	mScene->getFog().density += 0.007f;
 	
 
-	Scene::GodRayParams params;
 
-	mScene->getGodRayParams(params);
+}
 
-	params.sourcePosition = glm::vec3(0, -100, 0);
-	//params.sourceColor = Color::Yellow();
-	//params.rayColor = Color::Yellow();
-	//params.sourceSize += 30;
-
-	params.enabled = true;
-
-	mScene->setGodRayParams(params);
+void GameFrontend::startGame(){
+	
+	mAssets->getSoundSystem()->setGlobalVolume(1.0f);
 
 	ParticleEffect* effect = mScene->createParticleEffect();
 	effect->create(mAssets->getParticleResourceManager()->find("field"));
@@ -303,6 +315,7 @@ void GameFrontend::onStart(){
 	mCursor->create(mAssets->getParticleResourceManager()->find("cursor"));
 
 	mProcessManager->attach( new LightCycler(mScene, 6.0f) );
+
 	mProcessManager->attach( new GodrayProcess(mScene) );
 
 	{
@@ -326,8 +339,37 @@ void GameFrontend::onStart(){
 
 		mPhysics->createActor(NULL, desc);
 	}
+
+	mGameStarted = true;
+
+	mScene->setSkyBox( mAssets->getSkyBoxManager()->find("main") );
 }
 
+void GameFrontend::toggleMenu(){
+	gui::View* v;
+
+	v = mUi->findView("btn_quit");
+	v->setVisible(!v->isVisible());
+
+	v = mUi->findView("btn_newGame");
+	v->setVisible(!v->isVisible());
+
+	mMenuEnabled = !mMenuEnabled;
+}
+
+
+void GameFrontend::onBtnNewGameClicked(){
+	if(!mGameStarted){
+		startGame();
+	}
+
+	restart(eBEGGINER);
+	toggleMenu();
+}
+
+void GameFrontend::onBtnQuitClicked(){
+	stop();
+}
 
 void GameFrontend::onUpdate(float dt){
 	mPhysics->update(dt);
@@ -335,17 +377,28 @@ void GameFrontend::onUpdate(float dt){
 	mScene->update(dt);
 
 	mAssets->getSoundSystem()->update(dt);
-
-	//mCamController.handle(dt, getInput());
-		
-	mScene->getSkyBox()->getTransform().rotate(1, 1, 1, 3*dt);
+	
+	if(mGameStarted){
+		mScene->getSkyBox()->getTransform().rotate(1, 1, 1, 3*dt);
+	}
 
 	mRenderer->render(*mScene);
 
 	mProcessManager->upate(dt);
+
+
+	if(!mGameStarted){
+		ModelledActor* actor = (ModelledActor*)mScene->findActorByName("menu_cube");
+		actor->getController()->rotate(glm::vec3(1, 1, 0), 30*dt);
+	}
+	
 }
 
 void GameFrontend::onMouseMotion(const MouseMotionEvent* evt){
+	if(mMenuEnabled || !mGameStarted){
+		return;
+	}
+
 	RaycastHitEvent hit;
 
 	if(mScene->getPhysics()->pick(mScene->getCamera(),
@@ -440,10 +493,15 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 	else{
 		return GameBackend::handleEvent(e);
 	}
+
 	return true;
 }
 
 void GameFrontend::onMouseDown(float x, float y, MouseButton btn){
+	if(mMenuEnabled || !mGameStarted){
+		return;
+	}
+
 	RaycastHitEvent hit;
 
 	if(mGameState.getState() != Minesweeper::ePLAYING){
@@ -529,7 +587,7 @@ void GameFrontend::restart(Difficulty difficulty){
 	if(mEndGameToast){
 		Toast* toast = (Toast*)mEndGameToast.get();
 		if(toast->isAlive()){
-			toast->setFadeOutValue(0)->setFadeOutTime(0.3)->fadeOutNow();
+			toast->setFadeOutValue(0)->setFadeOutTime(0.3)->setLinger(false)->fadeOutNow();
 			
 			mEndGameToast = NULL;
 		}
@@ -593,6 +651,9 @@ void GameFrontend::restart(Difficulty difficulty){
 void GameFrontend::onKeyDown(VirtualKey c){
 	if(c == KEY_r){
 		restart(mDifficulty);
+	}
+	else if(c == KEY_ESC){
+		toggleMenu();
 	}
 	else if(c == KEY_d){
 		changeDifficulty(mDifficulty == eBEGGINER ? eINTERMEDIATE : mDifficulty == eINTERMEDIATE ? eEXPERT : eBEGGINER);

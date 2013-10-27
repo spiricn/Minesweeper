@@ -49,12 +49,15 @@ protected:
 
 	wt::lua::State* getLuaState();
 
+	void stop();
+
 private:
 	wt::AGameWindow* mWindow;
 	wt::AGameInput* mInput;
 	wt::EventManager* mEventManager;
 	wt::lua::State* mLuaState;
 	FILE* mLogFile;
+	bool mRunning;
 
 	GameBackend(const GameBackend&);
 }; // </GAMEBACKEND_H>
