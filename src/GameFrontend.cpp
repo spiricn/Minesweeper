@@ -24,7 +24,7 @@ using namespace physx;
 
 class GodrayProcess : public AProcess{
 public:
-	GodrayProcess(Scene* scene) : mScene(scene), mInterpolator(0, 1, 10, true) {
+	GodrayProcess(const IEngineServiceLocator* serviceLocator) : mInterpolator(0, 1, 10, true), mServiceLocator(serviceLocator){
 	}
 
 	void onProcUpdate(float dt){
@@ -39,23 +39,24 @@ public:
 		math::pointOnCircle(5, theta , point);
 
 		Scene::GodRayParams params;
-		mScene->getGodRayParams(params);
+		mServiceLocator->getScene()->getGodRayParams(params);
 		params.enabled = true;
 
 		params.sourcePosition = glm::vec3(point.x, -100.0f, point.y);
 
 		params.sourceColor = Color::fromHSV(pos, 0.5, 0.5);
 
-		mScene->setGodRayParams(params);
+		mServiceLocator->getScene()->setGodRayParams(params);
 	}
 
 private:
+	const IEngineServiceLocator* mServiceLocator;
 	Interpolator<float> mInterpolator;
-	Scene* mScene;
 };
+
 class LightCycler : public AProcess{
 public:
-	LightCycler(Scene* scene, float cycleDuration) : mCycleDuration(cycleDuration), mScene(scene), mCyclePosition(0.0f){
+	LightCycler(const IEngineServiceLocator* serviceLocator, float cycleDuration) : mCycleDuration(cycleDuration), mServiceLocator(serviceLocator), mCyclePosition(0.0f){
 	}
 
 	void onProcUpdate(float dt){
@@ -73,14 +74,14 @@ public:
 
 		glm::vec3 pos(point.x, 100, point.y);
 
-		DirectionalLight::Desc desc = mScene->getDirectionalLight()->getDesc();
+		DirectionalLight::Desc desc = mServiceLocator->getScene()->getDirectionalLight()->getDesc();
 
 		desc.direction = glm::normalize(-pos);
-		mScene->setDirectionalLightDesc(desc);
+		mServiceLocator->getScene()->setDirectionalLightDesc(desc);
 	}
 
 private:
-	Scene* mScene;
+	const IEngineServiceLocator* mServiceLocator;
 	const float mCycleDuration;
 	float mCyclePosition;
 }; // </LightCycler>
@@ -195,45 +196,20 @@ private:
 };
 
 GameFrontend::GameFrontend() : mGameStarted(false){
-}
+	AEngineFramework::Desc engineDesc;
 
-void GameFrontend::onStart(){
+	engineDesc.homeDir = "d:/Documents/prog/c++/workspace/Minesweeper/assets";
+
+	engineDesc.window.screenWidth = 1280;
+	engineDesc.window.screenHeight = 720;
+
+	initializeFramework(engineDesc);
+
 	mMenuEnabled = true;
 
-	// Initialize physics engine
-	mPhysics = new Physics(getEventManager());
-
-	try{
-		mPhysics->connectToVisualDebugger("127.0.0.1", 5425);
-	}catch(...){
-	}
-
-	mScene = new Scene(mPhysics, mAssets, getEventManager(), getLuaState());
-
-	mAssets = new Assets(Assets::eFS_DIR, "./");
-
-	mRenderer = new Renderer(getEventManager());
-
-	mRenderer->init(getWindow()->getVideoMode().mScreenWidth,
-		getWindow()->getVideoMode().mScreenHeigth);
-
-
-	mProcessManager = new ProcessManager;
+	mProcessManager = getProcessManager();
 		
 	mGameState.hook(getEventManager());
-
-#if 0
-	// No need for this since we're already registered as a global listener
-	getEventManager()->registerListener(this, CellRevealedEvent::TYPE);
-		
-	getEventManager()->registerListener(this, GameLostEvent::TYPE);
-
-	getEventManager()->registerListener(this, CellMarkedEvent::TYPE);
-
-	getEventManager()->registerListener(this, GameWonEvent::TYPE);
-#endif
-
-	//mCamController.setCamera(&mScene->getCamera());
 
 	// GUI
 	mUi = new gui::Window;
@@ -245,7 +221,7 @@ void GameFrontend::onStart(){
 
 	mUi->setInput(getInput());
 
-	Font* font = mAssets->getFontManager()->create("_demo_font");
+	Font* font = getAssets()->getFontManager()->create("_demo_font");
 	font->load("./rsrc/fonts/cour.ttf", 20);
 
 	mUi->hook(getEventManager() );
@@ -268,13 +244,13 @@ void GameFrontend::onStart(){
 	getEventManager()->registerCallback(
 		new MemberCallback<GameFrontend>(this, &GameFrontend::onBtnQuitClicked), gui::ButtonClickedEvent::TYPE, true, btnQuit->getId());
 
-	mScene->setUIWindow(mUi);
+	getScene()->setUIWindow(mUi);
 
 	getInput()->setMouseGrabbed(false);
 
-	mAssets->load("assets.wtr");
+	getAssets()->load("assets.wtr");
 
-	SceneLoader loader(mScene, mAssets);
+	SceneLoader loader(getScene(), getAssets());
 	loader.load("scene.wts");
 
 	PointLight::Desc desc;
@@ -289,34 +265,33 @@ void GameFrontend::onStart(){
 	desc.attenuation.linear = 0.3;
 	desc.attenuation.quadratic = 0.01;
 
-	//mCursorPointLight = mScene->createPointLight(desc);
+	//mCursorPointLight = getScene()->createPointLight(desc);
 
-	mCursorPointLight = (PointLight*)mScene->findActorByName("cursor_light");
+	mCursorPointLight = (PointLight*)getScene()->findActorByName("cursor_light");
 
 	
-	mProcessManager->attach(mAmbientMusic = new MusicPlayer(mAssets->getSoundSystem()));
+	mProcessManager->attach(mAmbientMusic = new MusicPlayer(getAssets()->getSoundSystem()));
 
-	mScene->getFog().color = Color(1, 201/255.0f, 14/255.0f);
-	mScene->getFog().density += 0.007f;
+	getScene()->getFog().color = Color(1, 201/255.0f, 14/255.0f);
+	getScene()->getFog().density += 0.007f;
 	
-
-
+	getEventManager()->registerGlobalListener(this);
 }
 
 void GameFrontend::startGame(){
 	
-	mAssets->getSoundSystem()->setGlobalVolume(1.0f);
+	getAssets()->getSoundSystem()->setGlobalVolume(1.0f);
 
-	ParticleEffect* effect = mScene->createParticleEffect();
-	effect->create(mAssets->getParticleResourceManager()->find("field"));
+	ParticleEffect* effect = getScene()->createParticleEffect();
+	effect->create(getAssets()->getParticleResourceManager()->find("field"));
 	effect->getController()->setTranslation(glm::vec3(0, -200, 0));
 
-	mCursor = mScene->createParticleEffect();
-	mCursor->create(mAssets->getParticleResourceManager()->find("cursor"));
+	mCursor = getScene()->createParticleEffect();
+	mCursor->create(getAssets()->getParticleResourceManager()->find("cursor"));
 
-	mProcessManager->attach( new LightCycler(mScene, 6.0f) );
+	mProcessManager->attach( new LightCycler(this, 6.0f) );
 
-	mProcessManager->attach( new GodrayProcess(mScene) );
+	mProcessManager->attach( new GodrayProcess(this) );
 
 	{
 		// Create cursor plane
@@ -337,12 +312,12 @@ void GameFrontend::startGame(){
 
 		desc.controlMode = PhysicsActor::eCTRL_MODE_PHYSICS;
 
-		mPhysics->createActor(NULL, desc);
+		getPhysics()->createActor(NULL, desc);
 	}
 
 	mGameStarted = true;
 
-	mScene->setSkyBox( mAssets->getSkyBoxManager()->find("main") );
+	getScene()->setSkyBox( getAssets()->getSkyBoxManager()->find("main") );
 }
 
 void GameFrontend::toggleMenu(){
@@ -355,6 +330,8 @@ void GameFrontend::toggleMenu(){
 	v->setVisible(!v->isVisible());
 
 	mMenuEnabled = !mMenuEnabled;
+
+	TRACED();
 }
 
 
@@ -368,30 +345,17 @@ void GameFrontend::onBtnNewGameClicked(){
 }
 
 void GameFrontend::onBtnQuitClicked(){
-	stop();
+	stopMainLoop();
 }
 
 void GameFrontend::onUpdate(float dt){
-	mPhysics->update(dt);
-
-	mScene->update(dt);
-
-	mAssets->getSoundSystem()->update(dt);
-	
 	if(mGameStarted){
-		mScene->getSkyBox()->getTransform().rotate(1, 1, 1, 3*dt);
+		getScene()->getSkyBox()->getTransform().rotate(1, 1, 1, 3*dt);
 	}
-
-	mRenderer->render(*mScene);
-
-	mProcessManager->upate(dt);
-
-
-	if(!mGameStarted){
-		ModelledActor* actor = (ModelledActor*)mScene->findActorByName("menu_cube");
+	else{
+		ModelledActor* actor = (ModelledActor*)getScene()->findActorByName("menu_cube");
 		actor->getController()->rotate(glm::vec3(1, 1, 0), 30*dt);
 	}
-	
 }
 
 void GameFrontend::onMouseMotion(const MouseMotionEvent* evt){
@@ -401,7 +365,7 @@ void GameFrontend::onMouseMotion(const MouseMotionEvent* evt){
 
 	RaycastHitEvent hit;
 
-	if(mScene->getPhysics()->pick(mScene->getCamera(),
+	if(getScene()->getPhysics()->pick(getScene()->getCamera(),
 		glm::vec2(evt->mX, evt->mY),
 		glm::vec2(getWindow()->getWidth(), getWindow()->getHeight()), hit, 
 		// Pick only cursor plane
@@ -441,7 +405,7 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 		Toast* toast = new Toast(mUi,
 			glm::vec2(0, 0), 
 			glm::vec2(getWindow()->getWidth(), getWindow()->getHeight()),
-			mAssets->getTextureManager()->find("defeat"));
+			getAssets()->getTextureManager()->find("defeat"));
 		toast->setLinger(true)->setFadeOutValue(0.3f);
 
 		mProcessManager->attach(
@@ -462,7 +426,7 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 
 		mAmbientMusic->play(MUSIC_DEFEAT);
 			
-		mPhysics->getScene()->setGravity(PxVec3(0, -9.81f, 0));
+		getPhysics()->getScene()->setGravity(PxVec3(0, -9.81f, 0));
 	}
 	else if(e->getType() == GameWonEvent::TYPE){
 		LOG("Game won!");
@@ -470,7 +434,7 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 		Toast* toast = new Toast(mUi,
 				glm::vec2(0, 0), 
 				glm::vec2(getWindow()->getWidth(), getWindow()->getHeight()),
-				mAssets->getTextureManager()->find("victory"));
+				getAssets()->getTextureManager()->find("victory"));
 		toast->setLinger(true)->setFadeOutValue(0.3);
 
 		mProcessManager->attach( mEndGameToast = toast );
@@ -478,7 +442,7 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 
 		mAmbientMusic->play(MUSIC_VICTORY);
 
-		mPhysics->getScene()->setGravity(PxVec3(0, 3.81f, 0));
+		getPhysics()->getScene()->setGravity(PxVec3(0, 3.81f, 0));
 		for(Uint32 i=0; i<mGameState.getField().getNumColumn(); i++){
 			for(Uint32 j=0; j<mGameState.getField().getNumRows(); j++){
 				ModelledActor* a = (ModelledActor*)mGameState.getCell(i, j).userData;
@@ -491,7 +455,7 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 		}
 	}
 	else{
-		return GameBackend::handleEvent(e);
+		processEvent(e);
 	}
 
 	return true;
@@ -508,7 +472,7 @@ void GameFrontend::onMouseDown(float x, float y, MouseButton btn){
 		restart(mDifficulty);
 	}
 	else{
-		if(mScene->getPhysics()->pick(mScene->getCamera(),
+		if(getScene()->getPhysics()->pick(getScene()->getCamera(),
 			glm::vec2(x, y),
 			glm::vec2(getWindow()->getWidth(), getWindow()->getHeight()), hit, 
 			// Pick only mines
@@ -572,12 +536,12 @@ void GameFrontend::restart(Difficulty difficulty){
 	// Create new field
 	mGameState.createField( numColumns, numRows, numMines );
 
-	mScene->getCamera().setTranslation(cameraPosition);
-	mScene->getCamera().setRotation(cameraRotation);
+	getScene()->getCamera().setTranslation(cameraPosition);
+	getScene()->getCamera().setRotation(cameraRotation);
 
 	// Remove all the actors from the scene
 	for(ActorList::iterator i=mActors.begin(); i!=mActors.end(); i++){
-		mScene->deleteActor((*i)->sceneActor);
+		getScene()->deleteActor((*i)->sceneActor);
 		delete *i;
 	}
 
@@ -595,15 +559,15 @@ void GameFrontend::restart(Difficulty difficulty){
 
 	mAmbientMusic->play(MUSIC_AMBIENT);
 
-	mPhysics->getScene()->setGravity(PxVec3(0, -9.81f, 0));
+	getPhysics()->getScene()->setGravity(PxVec3(0, -9.81f, 0));
 
 
 	for(Uint32 x=0; x<mGameState.getField().getNumColumn(); x++){
 		for(Uint32 y=0; y<mGameState.getField().getNumRows(); y++){
 			// Create scene actor
-			ModelledActor* actor = mScene->createModelledActor();
+			ModelledActor* actor = getScene()->createModelledActor();
 			actor->setModel(
-				mAssets->getModelManager()->find("cube"), "hidden");
+				getAssets()->getModelManager()->find("cube"), "hidden");
 
 			mGameState.setCellUserData(x, y, actor);
 
@@ -641,7 +605,7 @@ void GameFrontend::restart(Difficulty difficulty){
 			desc.collisionMask = 0x1;
 			actor->getTransformable()->getTransformMatrix(desc.pose);
 
-			PhysicsActor* pActor = mPhysics->createActor(actor, desc);
+			PhysicsActor* pActor = getPhysics()->createActor(actor, desc);
 			((PxRigidDynamic*)pActor->getPxActor())->putToSleep();
 		}
 	}
@@ -660,19 +624,19 @@ void GameFrontend::onKeyDown(VirtualKey c){
 	}
 	else if(c == KEY_F5){
 		glm::vec3 pos;
-		mScene->getCamera().getTranslation(pos);
+		getScene()->getCamera().getTranslation(pos);
 		LOGI("Camera position: = {%f, %f, %f}", pos.x, pos.y, pos.z);
 
 		glm::quat rot;
-		mScene->getCamera().getRotation(rot);
+		getScene()->getCamera().getRotation(rot);
 		LOGI("Camera rotation = {%f, %f, %f, %f}", rot.x, rot.y, rot.z, rot.w);
 
 		glm::vec3 fw;
-		mScene->getCamera().getForwardVector(fw);
+		getScene()->getCamera().getForwardVector(fw);
 		LOGI("Camera facing = {%f, %f, %f}", fw.x, fw.y, fw.z);
 
 
-		float h = mPhysics->getTerrainHeightAt(glm::vec2(pos.x, pos.z));
+		float h = getPhysics()->getTerrainHeightAt(glm::vec2(pos.x, pos.z));
 
 		LOGI("Terrain position = {%f, %f, %f}", pos.x, h, pos.z);
 	}
@@ -683,7 +647,7 @@ void GameFrontend::changeDifficulty(Difficulty diff){
 		return;
 	}
 
-	Texture2D* texture = mAssets->getTextureManager()->find(
+	Texture2D* texture = getAssets()->getTextureManager()->find(
 		diff == eBEGGINER ? "begginer" : diff == eINTERMEDIATE ? "intermediate" : "expert");
 
 #if 0

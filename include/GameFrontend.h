@@ -1,12 +1,12 @@
 #ifndef GAMEFRONTEND_H
 #define GAMEFRONTEND_H
 
-#include "GameBackend.h"
-
 #include "Minesweeper.h"
 
 #include <wt/MusicPlayer.h>
 #include <wt/FPSCameraControler.h>
+
+#include <wt/AEngineFramework.h>
 
 using namespace wt;
 
@@ -36,7 +36,7 @@ public:
 	}
 };
 
-class GameFrontend : public GameBackend{
+class GameFrontend : public AEngineFramework, public EventListener{
 public:
 	enum Difficulty{
 		eBEGGINER,
@@ -47,8 +47,6 @@ public:
 	GameFrontend();
 
 	void onUpdate(float dt);
-
-	void onStart();
 
 	void onMouseMotion(const MouseMotionEvent* evt);
 
@@ -72,11 +70,6 @@ public:
 private:
 
 	void toggleMenu();
-
-	AResourceSystem* mAssets;
-	Scene* mScene;
-	Renderer* mRenderer;
-	Physics* mPhysics;
 
 	Minesweeper mGameState;
 	MusicPlayer* mAmbientMusic;
