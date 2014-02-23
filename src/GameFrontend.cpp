@@ -173,7 +173,7 @@ public:
 
 				pos.y = mBaseHeight + mInterpolator.getValue();
 
-				actor->getController()->setTranslation(pos);
+				actor->getTransformable()->setTranslation(pos);
 
 				// The above setting of the translation wakes up  the actor so it needs to be put back to sleep
 				static_cast<PxRigidDynamic*>(actor->getPhysicsActor()->getPxActor())->putToSleep();
@@ -198,10 +198,14 @@ private:
 GameFrontend::GameFrontend() : mGameStarted(false){
 	AEngineFramework::Desc engineDesc;
 
+	// TODO hardcoded
 	engineDesc.homeDir = "d:/Documents/prog/c++/workspace/Minesweeper/assets";
 
 	engineDesc.window.screenWidth = 1280;
 	engineDesc.window.screenHeight = 720;
+
+	engineDesc.fileSystem.type = AFileSystem::eTYPE_LOCAL;
+	engineDesc.fileSystem.dir.root = ".";
 
 	initializeFramework(engineDesc);
 
@@ -272,8 +276,10 @@ GameFrontend::GameFrontend() : mGameStarted(false){
 	
 	mProcessManager->attach(mAmbientMusic = new MusicPlayer(getAssets()->getSoundSystem()));
 
-	getScene()->getFog().color = Color(1, 201/255.0f, 14/255.0f);
-	getScene()->getFog().density += 0.007f;
+	// TODO move to editor
+	FogDesc fog = getScene()->getFogDesc();
+	fog.enabled = false;
+	getScene()->setFogDesc(fog);
 	
 	getEventManager()->registerGlobalListener(this);
 }
@@ -284,7 +290,7 @@ void GameFrontend::startGame(){
 
 	ParticleEffect* effect = getScene()->createParticleEffect();
 	effect->create(getAssets()->getParticleResourceManager()->find("field"));
-	effect->getController()->setTranslation(glm::vec3(0, -200, 0));
+	effect->getTransformable()->setTranslation(glm::vec3(0, -200, 0));
 
 	mCursor = getScene()->createParticleEffect();
 	mCursor->create(getAssets()->getParticleResourceManager()->find("cursor"));
@@ -354,7 +360,7 @@ void GameFrontend::onUpdate(float dt){
 	}
 	else{
 		ModelledActor* actor = (ModelledActor*)getScene()->findActorByName("menu_cube");
-		actor->getController()->rotate(glm::vec3(1, 1, 0), 30*dt);
+		actor->getTransformable()->rotate(glm::vec3(1, 1, 0), 30*dt);
 	}
 }
 
@@ -378,7 +384,7 @@ void GameFrontend::onMouseMotion(const MouseMotionEvent* evt){
 
 		mCursorPointLight->setDesc(desc);
 
-		mCursor->getController()->setTranslation( hit.mImpact + glm::vec3(0, 3, 0) );
+		mCursor->getTransformable()->setTranslation( hit.mImpact + glm::vec3(0, 3, 0) );
 	}
 }
 
@@ -572,13 +578,13 @@ void GameFrontend::restart(Difficulty difficulty){
 			mGameState.setCellUserData(x, y, actor);
 
 			// Initial actor position
-			actor->getController()->setTranslation(glm::vec3(
+			actor->getTransformable()->setTranslation(glm::vec3(
 				(- (mGameState.getField().getNumColumn() * 2.3f)/2) + x * (2.3),
 				0,
 				(- (mGameState.getField().getNumRows() * 2.3f)/2) + y * (2.3))
 			);
 
-			actor->getController()->setRotation(
+			actor->getTransformable()->setRotation(
 				glm::vec3(0, 1, 0), -90
 			);
 
