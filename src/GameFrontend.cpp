@@ -8,6 +8,7 @@
 #include <wt/Toast.h>
 #include <wt/gui/Window.h>
 #include <wt/gui/TextView.h>
+#include <wt/ModelledActor.h>
 
 #include "GameFrontend.h"
 
@@ -99,7 +100,7 @@ private:
 	Interpolator<float> mInterpolator;
 	float mBaseHeight;
 public:
-	MineDetacher(EvtPtr evt) : mInterpolator(0, -0.3, .1, false, Interpolator<float>::eEASE_IN_QUAD){
+	MineDetacher(EventPtr evt) : mInterpolator(0, -0.3, .1, false){
 		CellRevealedEvent* e = (CellRevealedEvent*)evt.get();
 
 		for(std::set<const MineCell*>::iterator i=e->cells.begin(); i!=e->cells.end(); i++){
@@ -216,39 +217,34 @@ GameFrontend::GameFrontend() : mGameStarted(false){
 	mGameState.hook(getEventManager());
 
 	// GUI
-	mUi = new gui::Window;
-	
-	mUi->create(
-		getWindow()->getWidth(),
-		getWindow()->getHeight()
-	);
+	mWindowManager.hook(getEventManager(), getInput());
 
-	mUi->setInput(getInput());
+	mUi = mWindowManager.createWindow();
+	
+	mUi->setSize(glm::vec2( getWindow()->getWidth(), getWindow()->getHeight() ));
 
 	Font* font = getAssets()->getFontManager()->create("_demo_font");
 	font->load("./rsrc/fonts/cour.ttf", 20);
 
-	mUi->hook(getEventManager() );
 	mUi->setDefaultFont( font );
 
-	mUi->setDefaultScaleMode( gui::View::eGRID );
+	getScene()->setWindowManager(&mWindowManager);
+
+	mUi->setDefaultScaleMode( gui::View::eSCALE_MODE_GRID );
 	mUi->setGridSize(10, 3);
 
 	gui::Button* btnNewGame = mUi->createView<gui::Button>("btn_newGame");
 	btnNewGame->setText("New game");
 	btnNewGame->setGridLocation(2, 1, 2, 1);
 
-	getEventManager()->registerCallback(
-		new MemberCallback<GameFrontend>(this, &GameFrontend::onBtnNewGameClicked), gui::ButtonClickedEvent::TYPE, true, btnNewGame->getId());
+	getEventManager()->registerCallback(this, &GameFrontend::onBtnNewGameClicked, gui::ButtonClickedEvent::TYPE, btnNewGame);
 
 	gui::Button* btnQuit = mUi->createView<gui::Button>("btn_quit");
 	btnQuit->setText("Quit");
 	btnQuit->setGridLocation(5, 1, 2, 1);
 
-	getEventManager()->registerCallback(
-		new MemberCallback<GameFrontend>(this, &GameFrontend::onBtnQuitClicked), gui::ButtonClickedEvent::TYPE, true, btnQuit->getId());
+	getEventManager()->registerCallback(this, &GameFrontend::onBtnQuitClicked, gui::ButtonClickedEvent::TYPE, btnQuit);
 
-	getScene()->setUIWindow(mUi);
 
 	getInput()->setMouseGrabbed(false);
 
@@ -281,7 +277,7 @@ GameFrontend::GameFrontend() : mGameStarted(false){
 	fog.enabled = false;
 	getScene()->setFogDesc(fog);
 	
-	getEventManager()->registerGlobalListener(this);
+	getEventManager()->registerListener(this);
 }
 
 void GameFrontend::startGame(){
@@ -360,7 +356,7 @@ void GameFrontend::onUpdate(float dt){
 	}
 	else{
 		ModelledActor* actor = (ModelledActor*)getScene()->findActorByName("menu_cube");
-		actor->getTransformable()->rotate(glm::vec3(1, 1, 0), 30*dt);
+		actor->getTransformable()->rotate(glm::normalize(glm::vec3(0, 1, 0)), 30*dt);
 	}
 }
 
@@ -388,7 +384,7 @@ void GameFrontend::onMouseMotion(const MouseMotionEvent* evt){
 	}
 }
 
-bool GameFrontend::handleEvent(const Sp<Event> e){
+bool GameFrontend::handleEvent(const EventPtr e){
 	if(e->getType() == CellRevealedEvent::TYPE){
 		CellRevealedEvent* evt = (CellRevealedEvent*)e.get();
 
@@ -408,10 +404,12 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 
 	}
 	else if(e->getType() == GameLostEvent::TYPE){
-		Toast* toast = new Toast(mUi,
+		Toast* toast = new Toast(mUi, glm::vec2(0, 0), "Defeat");
+		//Toast* toast = new Toast(mUi, glm::vec2(0, 0), glm::vec2(getWindow()->getWidth(), getWindow()->getHeight()), "Defeat");
+		/*Toast* toast = new Toast(mUi,
 			glm::vec2(0, 0), 
 			glm::vec2(getWindow()->getWidth(), getWindow()->getHeight()),
-			getAssets()->getTextureManager()->find("defeat"));
+			getAssets()->getTextureManager()->find("defeat"));*/
 		toast->setLinger(true)->setFadeOutValue(0.3f);
 
 		mProcessManager->attach(
@@ -437,10 +435,11 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 	else if(e->getType() == GameWonEvent::TYPE){
 		LOG("Game won!");
 
-		Toast* toast = new Toast(mUi,
+		Toast* toast = new Toast(mUi, glm::vec2(0, 0), "Victory");
+		/*Toast* toast = new Toast(mUi,
 				glm::vec2(0, 0), 
 				glm::vec2(getWindow()->getWidth(), getWindow()->getHeight()),
-				getAssets()->getTextureManager()->find("victory"));
+				getAssets()->getTextureManager()->find("victory"));*/
 		toast->setLinger(true)->setFadeOutValue(0.3);
 
 		mProcessManager->attach( mEndGameToast = toast );
@@ -464,7 +463,7 @@ bool GameFrontend::handleEvent(const Sp<Event> e){
 		processEvent(e);
 	}
 
-	return true;
+	return false;
 }
 
 void GameFrontend::onMouseDown(float x, float y, MouseButton btn){

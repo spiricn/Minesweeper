@@ -4,8 +4,8 @@
 #include "Minesweeper.h"
 
 #include <wt/MusicPlayer.h>
-#include <wt/FPSCameraControler.h>
-
+#include <wt/CameraController.h>
+#include <wt/gui/WindowManager.h>
 #include <wt/AEngineFramework.h>
 
 using namespace wt;
@@ -36,7 +36,7 @@ public:
 	}
 };
 
-class GameFrontend : public AEngineFramework, public EventListener{
+class GameFrontend : public AEngineFramework, public IEventListener{
 public:
 	enum Difficulty{
 		eBEGGINER,
@@ -50,7 +50,7 @@ public:
 
 	void onMouseMotion(const MouseMotionEvent* evt);
 
-	bool handleEvent(const Sp<Event> e);
+	bool handleEvent(const EventPtr e);
 
 	void onMouseDown(float x, float y, MouseButton btn);
 
@@ -77,7 +77,7 @@ private:
 	ProcPtr mEndGameToast;
 	ProcessManager* mProcessManager;
 	gui::Window* mUi;
-	math::FPSCameraControler mCamController;
+	CameraController mCamController;
 
 	typedef std::vector<MineActor*> ActorList;
 	ActorList mActors;
@@ -90,6 +90,7 @@ private:
 
 	bool mMenuEnabled;
 	bool mGameStarted;
+	gui::WindowManager mWindowManager;
 }; // </GameFrontend>
 
 #endif // </GAMEFRONTEND_H>

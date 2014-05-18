@@ -34,10 +34,10 @@ Minesweeper::~Minesweeper(){
 void Minesweeper::hook(EventManager* em){
 	mEventManager = em;
 
-	mEventManager->registerInternalEvent(CellRevealedEvent::TYPE);
-	mEventManager->registerInternalEvent(GameLostEvent::TYPE);
-	mEventManager->registerInternalEvent(GameWonEvent::TYPE);
-	mEventManager->registerInternalEvent(CellMarkedEvent::TYPE);
+	mEventManager->registerEvent(CellRevealedEvent::TYPE);
+	mEventManager->registerEvent(GameLostEvent::TYPE);
+	mEventManager->registerEvent(GameWonEvent::TYPE);
+	mEventManager->registerEvent(CellMarkedEvent::TYPE);
 
 }
 
@@ -52,7 +52,7 @@ bool Minesweeper::victory(){
 		}
 	}
 
-	mEventManager->queueEvent( new GameWonEvent );
+	mEventManager->emitEvent( new GameWonEvent );
 
 	mGameState = eWON;
 
@@ -83,7 +83,7 @@ void Minesweeper::mark(MineCell& cell){
 		CellMarkedEvent* e = new CellMarkedEvent;
 		e->cell = &cell;
 
-		mEventManager->queueEvent(e);
+		mEventManager->emitEvent(e);
 	}
 
 	victory();
@@ -116,7 +116,7 @@ void Minesweeper::reveal(std::set<MineCell*>& cells){
 		e->cells.insert(*i);
 	}
 
-	mEventManager->queueEvent(e);
+	mEventManager->emitEvent(e);
 }
 
 void Minesweeper::revealNeighbours(Uint32 x, Uint32 y){
@@ -238,15 +238,15 @@ void Minesweeper::reveal(Uint32 x, Uint32 y){
 	}
 	else{
 		LOGV("Emiting game lost event");
-		mEventManager->queueEvent( new GameLostEvent );
+		mEventManager->emitEvent( new GameLostEvent );
 		mGameState = eLOST;
 	}		
 }
 
-const EvtType GameLostEvent::TYPE = "GameLost";
+const EventType GameLostEvent::TYPE = "GameLost";
 
-const EvtType CellRevealedEvent::TYPE = "CellRevealed";
+const EventType CellRevealedEvent::TYPE = "CellRevealed";
 
-const EvtType CellMarkedEvent::TYPE = "CellMarked";
+const EventType CellMarkedEvent::TYPE = "CellMarked";
 
-const EvtType GameWonEvent::TYPE = "GameWon";
+const EventType GameWonEvent::TYPE = "GameWon";

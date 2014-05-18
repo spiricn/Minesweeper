@@ -10,7 +10,7 @@
 
 using namespace wt;
 
-class CellRevealedEvent : public Event{
+class CellRevealedEvent : public AEvent{
 protected:
 	void serialize(LuaObject& dst){
 	}
@@ -21,18 +21,18 @@ protected:
 public:
 	std::set<const MineCell*> cells;
 
-	static const EvtType TYPE;
+	static const EventType TYPE;
 
 	CellRevealedEvent(){
 	}
 
-	const EvtType& getType() const{
+	const EventType& getType() const{
 		return TYPE;
 	}
 
 }; // </CellRevealedEvent>
 
-class GameLostEvent : public Event{
+class GameLostEvent : public AEvent{
 protected:
 	void serialize(LuaObject& dst){
 	}
@@ -41,18 +41,18 @@ protected:
 	}
 
 public:
-	static const EvtType TYPE;
+	static const EventType TYPE;
 
 	GameLostEvent(){
 	}
 
-	const EvtType& getType() const{
+	const EventType& getType() const{
 		return TYPE;
 	}
 
 }; // </GameLostEvent>
 	
-class CellMarkedEvent : public Event{
+class CellMarkedEvent : public AEvent{
 protected:
 	void serialize(LuaObject& dst){
 	}
@@ -61,20 +61,20 @@ protected:
 	}
 
 public:
-	static const EvtType TYPE;
+	static const EventType TYPE;
 
 	MineCell* cell;
 	CellMarkedEvent(){
 	}
 
-	const EvtType& getType() const{
+	const EventType& getType() const{
 		return TYPE;
 	}
 
 }; // </CellMarkedEvent>
 
 
-class GameWonEvent : public Event{
+class GameWonEvent : public AEvent{
 protected:
 	void serialize(LuaObject& dst){
 	}
@@ -83,12 +83,12 @@ protected:
 	}
 
 public:
-	static const EvtType TYPE;
+	static const EventType TYPE;
 
 	GameWonEvent(){
 	}
 
-	const EvtType& getType() const{
+	const EventType& getType() const{
 		return TYPE;
 	}
 
